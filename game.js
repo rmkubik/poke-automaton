@@ -148,12 +148,12 @@ PokeAuto.Map.prototype.set = function(row, col, pokemon) {
   if (row < 0) {
     row = this.height + row;
   } else if (row > this.height - 1) {
-    row = row - this.height - 1;
+    row = row - this.height;
   }
   if (col < 0) {
     col = this.width + col;
   } else if (col > this.width - 1) {
-    col = col - this.width - 1;
+    col = col - this.width;
   }
   this.map[row][col] = pokemon;
 }
@@ -172,24 +172,26 @@ PokeAuto.update = function(map, map_buffer) {
       //which neighbor will take most damage?
       var max;
       var maxDamage = -1;
-      if (curr.attack(up) > maxDamage) {
+      if (curr.attack(up) > maxDamage && up.id !== curr.id) {
         maxDamage = curr.attack(up);
         max = {row: row - 1, col: col};
       }
-      if (curr.attack(down) > maxDamage) {
+      if (curr.attack(down) > maxDamage && down.id !== curr.id) {
         maxDamage = curr.attack(down);
         max = {row: row + 1, col: col};
       }
-      if (curr.attack(left) > maxDamage) {
+      if (curr.attack(left) > maxDamage && left.id !== curr.id) {
         maxDamage = curr.attack(left);
         max = {row: row, col: col - 1};
       }
-      if (curr.attack(right) > maxDamage) {
+      if (curr.attack(right) > maxDamage && right.id !== curr.id) {
         maxDamage = curr.attack(right);
         max = {row: row, col: col + 1};
       }
       //attack that neighbor
-      map_buffer.get(max.row, max.col).takeDamage(maxDamage);
+      if (max !== undefined) {
+        map_buffer.get(max.row, max.col).takeDamage(maxDamage);
+      }
       //place claim in buffer on cell
       attacks.push({
         target: map_buffer.get(max.row, max.col),
@@ -202,17 +204,16 @@ PokeAuto.update = function(map, map_buffer) {
   //check each cell in buffer for claims
   for (var i = 0; i < attacks.length; i++) {
     var attack = attacks[i];
-    console.log(attack);
     if (!attack.target.alive) {
       if (attack.attacker.stats.Speed
         > map_buffer.get(attack.target_loc.row, attack.target_loc.col).stats.Speed) {
           //highest speed claimant wins cell
-          map_buffer.set(attack.target_loc.row, attack.target_loc.col, attack.target_loc.attacker);
+          map_buffer.set(attack.target_loc.row, attack.target_loc.col, attack.attacker);
       } else if (attack.attacker.stats.Speed
         === map_buffer.get(attack.target_loc.row, attack.target_loc.col).stats.Speed) {
           //in tie, randomly decide
           if (Math.random() > 0.5) {
-            map_buffer.set(attack.target_loc.row, attack.target_loc.col, attack.target_loc.attacker);
+            map_buffer.set(attack.target_loc.row, attack.target_loc.col, attack.attacker);
           }
       }
     }
@@ -240,15 +241,41 @@ map.generate();
 var map_buffer = map.clone();
 
 var canvas = document.createElement("canvas");
+canvas.id = "canvas";
 canvas.width = height;
 canvas.height = width;
+
 canvas.addEventListener("click", function(e) {
   if (PokeAuto.bufferToggle) {
     PokeAuto.update(map, map_buffer);
   } else {
     PokeAuto.update(map_buffer, map);
   }
+  if (PokeAuto.bufferToggle) {
+    PokeAuto.draw(context, map);
+    PokeAuto.bufferToggle = false;
+  } else {
+    PokeAuto.draw(context, map_buffer);
+    PokeAuto.bufferToggle = true;
+  }
 });
+
+PokeAuto.gameLoop = function() {
+  console.log(PokeAuto.bufferToggle);
+  if (PokeAuto.bufferToggle) {
+    PokeAuto.update(map, map_buffer);
+  } else {
+    PokeAuto.update(map_buffer, map);
+  }
+  if (PokeAuto.bufferToggle) {
+    PokeAuto.draw(context, map);
+    PokeAuto.bufferToggle = false;
+  } else {
+    PokeAuto.draw(context, map_buffer);
+    PokeAuto.bufferToggle = true;
+  }
+  PokeAuto.gameLoop();
+}
 
 document.body.appendChild(canvas);
 
@@ -256,10 +283,4 @@ var context = canvas.getContext("2d");
 context.fillStyle = "#000";
 context.fillRect(0, 0, canvas.width, canvas.height);
 
-if (PokeAuto.bufferToggle) {
-  PokeAuto.draw(context, map);
-  PokeAuto.bufferToggle = false;
-} else {
-  PokeAuto.draw(context, map_buffer);
-  PokeAuto.bufferToggle = true;
-}
+PokeAuto.draw(context, map);
