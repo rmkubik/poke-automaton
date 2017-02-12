@@ -246,18 +246,7 @@ canvas.width = height;
 canvas.height = width;
 
 canvas.addEventListener("click", function(e) {
-  if (PokeAuto.bufferToggle) {
-    PokeAuto.update(map, map_buffer);
-  } else {
-    PokeAuto.update(map_buffer, map);
-  }
-  if (PokeAuto.bufferToggle) {
-    PokeAuto.draw(context, map);
-    PokeAuto.bufferToggle = false;
-  } else {
-    PokeAuto.draw(context, map_buffer);
-    PokeAuto.bufferToggle = true;
-  }
+  PokeAuto.gameLoop();
 });
 
 PokeAuto.gameLoop = function() {
@@ -274,7 +263,7 @@ PokeAuto.gameLoop = function() {
     PokeAuto.draw(context, map_buffer);
     PokeAuto.bufferToggle = true;
   }
-  PokeAuto.gameLoop();
+  window.requestAnimationFrame(PokeAuto.gameLoop);
 }
 
 document.body.appendChild(canvas);
