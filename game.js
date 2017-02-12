@@ -64,7 +64,7 @@ PokeAuto.Pokemon = function(id, name, types, stats) {
 
 PokeAuto.Pokemon.constructor = PokeAuto.Pokemon;
 
-PokeAuto.Pokemon.prototype.fight = function(other) {
+PokeAuto.Pokemon.prototype.attack = function(other) {
   var damage = 0;
   if (this.stats["Sp.Atk"] > this.stats["Attack"]) {
     damage = (this.stats["Sp.Atk"] - other.stats["Sp.Def"])
@@ -76,7 +76,7 @@ PokeAuto.Pokemon.prototype.fight = function(other) {
   if (damage < 0) {
     damage = 0;
   }
-  other.takeDamage(damage);
+  return damage;
 }
 
 PokeAuto.Pokemon.prototype.typeDefEffectiveness = function(types) {
@@ -132,29 +132,94 @@ PokeAuto.Map.prototype.clone = function() {
 
 PokeAuto.Map.prototype.get = function(row, col) {
   if (row < 0) {
-    row = this.height - row;
+    row = this.height + row;
   } else if (row > this.height - 1) {
     row = row - this.height;
   }
   if (col < 0) {
-    col = this.height - col;
-  } else if (col > this.height - 1) {
-    col = col - this.height;
+    col = this.width + col;
+  } else if (col > this.width - 1) {
+    col = col - this.width;
   }
   return this.map[row][col];
 }
 
+PokeAuto.Map.prototype.set = function(row, col, pokemon) {
+  if (row < 0) {
+    row = this.height + row;
+  } else if (row > this.height - 1) {
+    row = row - this.height - 1;
+  }
+  if (col < 0) {
+    col = this.width + col;
+  } else if (col > this.width - 1) {
+    col = col - this.width - 1;
+  }
+  this.map[row][col] = pokemon;
+}
+
 
 PokeAuto.update = function(map, map_buffer) {
+  var attacks = [];
   for (var row = 0; row < height; row++) {
     for (var col = 0; col < width; col++) {
-      map.get(row, col).fight(map(row + 1, col));
-      map.get(row, col).fight(map(row - 1, col));
-      map.get(row, col).fight(map(row, col + 1));
-      map.get(row, col).fight(map(row, col - 1));
+      var curr = map.get(row, col);
+      var up = map.get(row - 1, col);
+      var down = map.get(row + 1, col);
+      var left = map.get(row, col - 1);
+      var right = map.get(row, col + 1);
+
+      //which neighbor will take most damage?
+      var max;
+      var maxDamage = -1;
+      if (curr.attack(up) > maxDamage) {
+        maxDamage = curr.attack(up);
+        max = {row: row - 1, col: col};
+      }
+      if (curr.attack(down) > maxDamage) {
+        maxDamage = curr.attack(down);
+        max = {row: row + 1, col: col};
+      }
+      if (curr.attack(left) > maxDamage) {
+        maxDamage = curr.attack(left);
+        max = {row: row, col: col - 1};
+      }
+      if (curr.attack(right) > maxDamage) {
+        maxDamage = curr.attack(right);
+        max = {row: row, col: col + 1};
+      }
+      //attack that neighbor
+      map_buffer.get(max.row, max.col).takeDamage(maxDamage);
+      //place claim in buffer on cell
+      attacks.push({
+        target: map_buffer.get(max.row, max.col),
+        target_loc: max,
+        attacker: curr
+      });
+    }
+  }
+
+  //check each cell in buffer for claims
+  for (var i = 0; i < attacks.length; i++) {
+    var attack = attacks[i];
+    console.log(attack);
+    if (!attack.target.alive) {
+      if (attack.attacker.stats.Speed
+        > map_buffer.get(attack.target_loc.row, attack.target_loc.col).stats.Speed) {
+          //highest speed claimant wins cell
+          map_buffer.set(attack.target_loc.row, attack.target_loc.col, attack.target_loc.attacker);
+      } else if (attack.attacker.stats.Speed
+        === map_buffer.get(attack.target_loc.row, attack.target_loc.col).stats.Speed) {
+          //in tie, randomly decide
+          if (Math.random() > 0.5) {
+            map_buffer.set(attack.target_loc.row, attack.target_loc.col, attack.target_loc.attacker);
+          }
+      }
     }
   }
 }
+
+PokeAuto.bufferToggle = true;
 
 PokeAuto.draw = function(context, map) {
   for (var row = 0; row < height; row++) {
@@ -164,29 +229,6 @@ PokeAuto.draw = function(context, map) {
     }
   }
 }
-
-// var testBulbasaur = new PokeAuto.Pokemon(1, "Test Bulbasaur", [
-//     "\u8349",
-//     "\u6bd2"
-// ], {
-//     "Attack": 49,
-//     "Defense": 49,
-//     "HP": 45,
-//     "Sp.Atk": 65,
-//     "Sp.Def": 65,
-//     "Speed": 45
-// });
-// var testCharizard = new PokeAuto.Pokemon(6, "Test Charizard", [
-//     "\u708e",
-//     "\u98de\u884c"
-// ], {
-//     "Attack": 84,
-//     "Defense": 78,
-//     "HP": 78,
-//     "Sp.Atk": 109,
-//     "Sp.Def": 85,
-//     "Speed": 100
-// });
 
 //build game
 var height = 500;
@@ -200,6 +242,13 @@ var map_buffer = map.clone();
 var canvas = document.createElement("canvas");
 canvas.width = height;
 canvas.height = width;
+canvas.addEventListener("click", function(e) {
+  if (PokeAuto.bufferToggle) {
+    PokeAuto.update(map, map_buffer);
+  } else {
+    PokeAuto.update(map_buffer, map);
+  }
+});
 
 document.body.appendChild(canvas);
 
@@ -207,4 +256,10 @@ var context = canvas.getContext("2d");
 context.fillStyle = "#000";
 context.fillRect(0, 0, canvas.width, canvas.height);
 
-PokeAuto.draw(context, map);
+if (PokeAuto.bufferToggle) {
+  PokeAuto.draw(context, map);
+  PokeAuto.bufferToggle = false;
+} else {
+  PokeAuto.draw(context, map_buffer);
+  PokeAuto.bufferToggle = true;
+}
