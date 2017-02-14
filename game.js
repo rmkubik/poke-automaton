@@ -96,6 +96,15 @@ PokeAuto.Pokemon.prototype.takeDamage = function(damage) {
   }
 }
 
+PokeAuto.Pokemon.prototype.levelUp = function () {
+  this.stats["Attack"] += 5,
+  this.stats["Defense"] += 5,
+  this.stats["HP"] += 5,
+  this.stats["Sp.Atk"] += 5,
+  this.stats["Sp.Def"] += 5,
+  this.stats["Speed"] += 100
+};
+
 PokeAuto.createPokemon = function(id) {
   var json = pokedex[id];
   return new PokeAuto.Pokemon(json["id"], json["ename"], json["type"], json["base"]);
@@ -208,11 +217,13 @@ PokeAuto.update = function(map, map_buffer) {
       if (attack.attacker.stats.Speed
         > map_buffer.get(attack.target_loc.row, attack.target_loc.col).stats.Speed) {
           //highest speed claimant wins cell
+          attack.attacker.levelUp;
           map_buffer.set(attack.target_loc.row, attack.target_loc.col, attack.attacker);
       } else if (attack.attacker.stats.Speed
         === map_buffer.get(attack.target_loc.row, attack.target_loc.col).stats.Speed) {
           //in tie, randomly decide
           if (Math.random() > 0.5) {
+            attack.attacker.levelUp;
             map_buffer.set(attack.target_loc.row, attack.target_loc.col, attack.attacker);
           }
       }
@@ -231,9 +242,9 @@ PokeAuto.draw = function(context, map) {
   }
 }
 
-//build game
-var height = 500;
-var width = 500;
+//build canvas
+var height = 100;
+var width = 100;
 
 var map = new PokeAuto.Map(height, width);
 map.generate();
@@ -250,7 +261,6 @@ canvas.addEventListener("click", function(e) {
 });
 
 PokeAuto.gameLoop = function() {
-  console.log(PokeAuto.bufferToggle);
   if (PokeAuto.bufferToggle) {
     PokeAuto.update(map, map_buffer);
   } else {
