@@ -1,5 +1,5 @@
 var PokeAuto = {};
-
+//test
 //read data
 var pokedex, types;
 $.ajax({
